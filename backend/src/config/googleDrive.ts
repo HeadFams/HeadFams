@@ -5,14 +5,15 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const KEYFILEPATH = path.join(__dirname, "../../service-account.json");
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI
+);
 
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEYFILEPATH,
-  scopes: ["https://www.googleapis.com/auth/drive.file"],
-});
+oauth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
 
-const driveService = google.drive({ version: "v3", auth });
+const driveService = google.drive({ version: "v3", auth: oauth2Client });
 
 export const uploadToDrive = async (file: Express.Multer.File) => {
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID;
@@ -32,6 +33,7 @@ export const uploadToDrive = async (file: Express.Multer.File) => {
     requestBody: fileMetadata,
     media,
     fields: "id, name, webViewLink, webContentLink",
+    supportsAllDrives: true,
   });
 
   if (!response.data || !response.data.id) throw new Error("Upload failed, no response data");
@@ -43,6 +45,7 @@ export const uploadToDrive = async (file: Express.Multer.File) => {
       role: "reader",
       type: "anyone",
     },
+    supportsAllDrives: true,
   });
 
   // Construct a direct link (using 'uc' endpoint for direct view)
@@ -64,6 +67,7 @@ export const deleteFromDrive = async (fileId: string) => {
   try {
     await driveService.files.delete({
       fileId,
+      supportsAllDrives: true,
     });
   } catch (error) {
     console.error("Failed to delete file from Drive:", error);
